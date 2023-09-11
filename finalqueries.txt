@@ -1,0 +1,135 @@
+CREATE OR REPLACE VIEW "average_repo_size_by_type_year_month" AS 
+SELECT
+  EXTRACT(YEAR FROM vrf."created_at") "Year"
+, EXTRACT(MONTH FROM vrf."created_at") "Month"
+, vmf."type"
+, AVG(vrf.size) "average_repo_size"
+FROM
+  ("view_main_final" vmf
+INNER JOIN "view_repo_final" vrf ON (vrf."owner_id" = vmf."id"))
+GROUP BY EXTRACT(YEAR FROM vrf."created_at"), EXTRACT(MONTH FROM vrf."created_at"), vmf."type"
+-----------------------------------------------------------
+CREATE OR REPLACE VIEW "count_of_id_by_year_and_month" AS 
+SELECT
+  EXTRACT(YEAR FROM "created_at") "year_wise"
+, EXTRACT(MONTH FROM "created_at") "month_wise"
+, "type"
+, COUNT("id") count
+FROM
+  "database64"."view_main_final"
+GROUP BY EXTRACT(YEAR FROM "created_at"), EXTRACT(MONTH FROM "created_at"), "type"
+ORDER BY "year_wise" ASC, "month_wise" ASC, "type" ASC
+---------------------------------------------------------------------
+CREATE OR REPLACE VIEW "count_of_language" AS 
+SELECT
+  vrf.language
+, EXTRACT(YEAR FROM vrf."created_at") "year"
+, EXTRACT(MONTH FROM vrf."created_at") "month"
+, vmf.type
+, COUNT(DISTINCT vrf.id) id_count
+FROM
+  (view_repo_final vrf
+INNER JOIN view_main_final vmf ON (vrf."owner_id" = vmf.id))
+WHERE ((vrf.language IS NOT NULL) AND (vrf."language" <> 'No Language Provided'))
+GROUP BY vrf.language, vmf.type, EXTRACT(YEAR FROM vrf."created_at"), EXTRACT(MONTH FROM vrf."created_at")
+ORDER BY id_count DESC
+
+---------------------------------------------------------------------
+CREATE OR REPLACE VIEW "final_top_10_accounts" AS  (dax)
+SELECT *
+FROM
+  (
+   SELECT
+     id
+   , type
+   , year
+   , score
+   , ROW_NUMBER() OVER (PARTITION BY year ORDER BY score DESC) score_rank
+   FROM
+     "top10_accounts"
+) 
+WHERE (score_rank <= 10)
+ORDER BY year DESC
+-----------------------------------------------------------
+CREATE OR REPLACE VIEW "final_top_10_repos" AS 
+SELECT *
+FROM
+  (
+   SELECT
+     id
+   , type
+   , year
+   , score
+   , ROW_NUMBER() OVER (PARTITION BY year ORDER BY score DESC) score_rank
+   FROM
+     "top10_repos"
+) 
+WHERE (score_rank <= 10)
+ORDER BY year DESC
+-----------------------------------------------------------------------
+CREATE OR REPLACE VIEW "license_view" AS 
+SELECT
+  "License"
+, "type"
+, EXTRACT(YEAR FROM a."created_at") year
+, EXTRACT(MONTH FROM a."created_at") month
+, count(b."id") "No. of Users"
+FROM
+  (view_repo_final a
+INNER JOIN view_main_final b ON (a."owner_id" = b."id"))
+WHERE (("License" <> 'No License Provided') AND ("License" <> 'Other'))
+GROUP BY "License", "type", EXTRACT(YEAR FROM a."created_at"), EXTRACT(MONTH FROM a."created_at")
+ORDER BY "No. of Users" DESC
+----------------------------------------------------------
+CREATE OR REPLACE VIEW "no_of_repos_by_date_type" AS 
+SELECT
+  EXTRACT(YEAR FROM "created_at") "Year"
+, EXTRACT(MONTH FROM "created_at") "Month"
+, "type"
+, AVG(public_repos) average_repositories_per_user
+FROM
+  "view_main_final"
+GROUP BY EXTRACT(YEAR FROM "created_at"), EXTRACT(MONTH FROM "created_at"), "type"
+ORDER BY "Year" ASC, "Month" ASC, "type" ASC
+-----------------------------------------------------
+CREATE OR REPLACE VIEW "repoforkratio" AS 
+SELECT
+  EXTRACT(YEAR FROM r."created_at") "Year"
+, EXTRACT(MONTH FROM r."created_at") "Month"
+, m."type" acc_type
+, SUM((CASE WHEN (r.fork = true) THEN 1 ELSE 0 END)) fork_count
+, SUM((CASE WHEN (r.fork = false) THEN 1 ELSE 0 END)) non_fork_count
+, COUNT(*) total_count
+, ((1E2 * SUM((CASE WHEN (r.fork = true) THEN 1 ELSE 0 END))) / COUNT(*)) fork_ratio
+, ((1E2 * SUM((CASE WHEN (r.fork = false) THEN 1 ELSE 0 END))) / COUNT(*)) non_fork_ratio
+FROM
+  ("view_main_final" m
+INNER JOIN "view_repo_final" r ON (m.id = r."owner_id"))
+WHERE (r."created_at" IS NOT NULL)
+GROUP BY EXTRACT(YEAR FROM r."created_at"), EXTRACT(MONTH FROM r."created_at"), m."type"
+ORDER BY "Year" ASC, "Month" ASC
+-------------------------------------------------------------------
+CREATE OR REPLACE VIEW "repository_creation_count_by_type" AS 
+SELECT
+  EXTRACT(YEAR FROM r."created_at") "Year"
+, EXTRACT(MONTH FROM r."created_at") "Month"
+, m."type"
+, COUNT(DISTINCT r."id") "Repository Count"
+FROM
+  ("view_repo_final" r
+INNER JOIN "view_main_final" m ON (r."owner_id" = m."id"))
+GROUP BY EXTRACT(YEAR FROM r."created_at"), EXTRACT(MONTH FROM r."created_at"), m."type"
+ORDER BY "Year" ASC, "Month" ASC, m."type" ASC
+-----------------------------------------------------------------------------
+CREATE OR REPLACE VIEW "view_suspicious_counts_by_year_month" AS 
+SELECT
+  EXTRACT(YEAR FROM "created_at") "Year"
+, EXTRACT(MONTH FROM "created_at") "Month"
+, "type"
+, SUM((CASE WHEN ("is_suspicious" = true) THEN 1 ELSE 0 END)) "suspicious_count"
+, SUM((CASE WHEN ("is_suspicious" = false) THEN 1 ELSE 0 END)) "non_suspicious_count"
+FROM
+  "view_main_final"
+GROUP BY EXTRACT(YEAR FROM "created_at"), EXTRACT(MONTH FROM "created_at"), "type"
+ORDER BY "Year" ASC, "Month" ASC
+-----------------------------------------
